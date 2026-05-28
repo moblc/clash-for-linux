@@ -11,7 +11,6 @@
 
 DEFAULT_MIHOMO_VERSION="${MIHOMO_VERSION:-v1.19.23}"
 DEFAULT_CLASH_VERSION="${CLASH_VERSION:-v1.18.0}"
-DEFAULT_SUBCONVERTER_VERSION="${SUBCONVERTER_VERSION:-v0.9.9}"
 DEFAULT_YQ_VERSION="${YQ_VERSION:-v4.52.4}"
 DEFAULT_DASHBOARD_UI_URL="${DASHBOARD_UI_URL:-https://github.com/Zephyruso/zashboard/releases/latest/download/dist.zip}"
 
@@ -2344,14 +2343,6 @@ runtime_kernel_name() {
     clash) echo "clash" ;;
     *) echo "unknown" ;;
   esac
-}
-
-subconverter_home() {
-  echo "$RUNTIME_DIR/subconverter"
-}
-
-subconverter_bin() {
-  echo "$(subconverter_home)/subconverter"
 }
 
 clashctl_source() {

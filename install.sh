@@ -28,7 +28,6 @@ resolve_geo_assets
 
 resolve_runtime_kernel
 resolve_yq
-resolve_subconverter
 
 mark_install_environment || true
 mark_install_plan || true

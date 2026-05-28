@@ -41,7 +41,7 @@
 在终端中执行以下命令即可完成安装：
 
 ```
-git clone --branch master --depth 1 https://ghfast.top/https://github.com/wnlen/clash-for-linux.git
+git clone --branch master --depth 1 https://ghfast.top/https://github.com/moblc/clash-for-linux.git
 cd clash-for-linux
 bash install.sh
 ```

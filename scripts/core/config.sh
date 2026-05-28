@@ -702,7 +702,6 @@ download_subscription_yaml() {
 
       require_subscription_fetch_allowed "$fetch_reason" "$url"
 
-      __CLASH_DOWNLOAD_UA="$(subconverter_subscription_user_agent)" \
       download_subscription_file \
         "$url" \
         "$out_file"
@@ -1002,10 +1001,6 @@ fail_build_with_detail() {
   detail="$(read_compile_error 2>/dev/null || true)"
   [ -n "${detail:-}" ] || detail="$fallback_message"
   record_detail="$detail"
-
-  if [ "$stage" = "fetch-source" ] && [ -n "${SUBCONVERTER_LAST_ERROR_DETAIL:-}" ]; then
-    record_detail="$SUBCONVERTER_LAST_ERROR_DETAIL"
-  fi
 
   record_build_error_detail "$stage" "$record_detail"
   record_build_failure "$mode" "$policy" "$active" "$selected" "$included" "$failed"
@@ -3691,14 +3686,13 @@ convert_subscription_via_subconverter() {
 }
 
 set_subscription_format() {
-  ui_info "当前版本订阅格式已固定为 convert，无需设置"
+  ui_info "当前版本仅支持 Clash YAML 格式订阅，无需设置"
   return 0
 }
 
 show_subscription_format_help() {
   echo "可用订阅格式："
-  echo "  clash    先直接下载 Clash YAML；若返回内容不是合法 YAML，则自动尝试转换"
-  echo "  convert  直接通过 subconverter 转换通用订阅"
+  echo "  clash    直接下载 Clash YAML 配置"
 }
 
 add_profile() {
@@ -3894,9 +3888,6 @@ fetch_subscription_source() {
   raw_file="$(mktemp)"
   candidate_file="$(mktemp)"
   rm -f "$raw_file" "$candidate_file" 2>/dev/null || true
-  SUBCONVERTER_LAST_ERROR_DETAIL=""
-  SUBCONVERTER_LAST_ERROR_SUMMARY=""
-  SUBCONVERTER_LAST_ZERO_NODES="false"
 
   if [ -z "${url:-}" ]; then
     mark_subscription_health_failure "$name" "订阅源地址为空"
@@ -3904,126 +3895,29 @@ fetch_subscription_source() {
     return 1
   fi
 
-  case "$fmt" in
-    ""|clash)
-      case "$fetch_reason" in
-        explicit-add|manual-add|manual-use|manual-refresh)
-          clear_subscription_cache "$url" "clash"
-          clear_subscription_cache "$url" "convert"
-          ;;
-      esac
-
-      if download_subscription_yaml "$url" "$raw_file" "$fetch_reason"; then
-        if build_runtime_candidate_from_payload "$raw_file" "$candidate_file" "$name"; then
-          mv -f "$candidate_file" "$out_file"
-          rm -f "$raw_file" 2>/dev/null || true
-          mark_subscription_health_success "$name"
-          return 0
-        fi
-
-        write_subscription_invalid_debug_snapshot "$raw_file"
-
-        rm -f "$candidate_file" 2>/dev/null || true
-        candidate_file="$(mktemp)"
-        rm -f "$candidate_file" 2>/dev/null || true
-
-        if convert_subscription_via_subconverter "$url" "$raw_file" "$fetch_reason" "direct-clash-invalid"; then
-          if build_runtime_candidate_from_payload "$raw_file" "$candidate_file" "$name"; then
-            mv -f "$candidate_file" "$out_file"
-            rm -f "$raw_file" 2>/dev/null || true
-            mark_subscription_health_success "$name"
-            return 0
-          fi
-
-          write_subscription_invalid_debug_snapshot "$raw_file"
-          if [ "$scheme" = "file" ]; then
-            reason="本地订阅转换成功，但 config 校验失败"
-          else
-            reason="订阅下载成功，但原始配置与转换结果都不能直接运行"
-          fi
-        else
-          warn "订阅下载成功但转换失败"
-          if [ "${SUBCONVERTER_LAST_ZERO_NODES:-false}" = "true" ]; then
-            warn "subconverter returned 0 nodes; trying raw Clash YAML fallback"
-
-            rm -f "$raw_file" "$candidate_file" 2>/dev/null || true
-            raw_file="$(mktemp)"
-            candidate_file="$(mktemp)"
-            rm -f "$raw_file" "$candidate_file" 2>/dev/null || true
-
-            if download_subscription_yaml "$url" "$raw_file" "$fetch_reason"; then
-              if build_runtime_candidate_from_payload "$raw_file" "$candidate_file" "$name"; then
-                mv -f "$candidate_file" "$out_file"
-                rm -f "$raw_file" 2>/dev/null || true
-                mark_subscription_health_success "$name"
-                return 0
-              fi
-
-              write_subscription_invalid_debug_snapshot "$raw_file"
-              reason="subconverter failed: No nodes were found; raw Clash YAML fallback was tried but is not directly runnable"
-            else
-              reason="subconverter failed: No nodes were found; raw Clash YAML fallback download failed"
-            fi
-          else
-            warn_subconverter_no_nodes_hint
-            if [ "$scheme" = "file" ]; then
-            reason="本地订阅不是 Clash YAML，且 subconverter 转换失败；$(subconverter_no_nodes_hint)"
-          else
-            reason="订阅下载成功，但原始配置不能直接运行，且转换失败；$(subconverter_no_nodes_hint)"
-          fi
-          fi
-        fi
-      else
-        reason="订阅下载失败"
-      fi
-      ;;
-    convert)
-      case "$fetch_reason" in
-        explicit-add|manual-add|manual-use|manual-refresh)
-          clear_subscription_cache "$url" "convert"
-          ;;
-      esac
-
-      if convert_subscription_via_subconverter "$url" "$raw_file" "$fetch_reason" "subscription-type-convert"; then
-        if build_runtime_candidate_from_payload "$raw_file" "$candidate_file" "$name"; then
-          mv -f "$candidate_file" "$out_file"
-          rm -f "$raw_file" 2>/dev/null || true
-          mark_subscription_health_success "$name"
-          return 0
-        fi
-
-        write_subscription_invalid_debug_snapshot "$raw_file"
-        reason="订阅转换成功，但转换结果不能直接运行"
-      else
-        reason="订阅转换失败"
-        if [ "${SUBCONVERTER_LAST_ZERO_NODES:-false}" = "true" ]; then
-          warn "subconverter 未解析到节点，尝试直接使用原始订阅（Clash YAML fallback）"
-
-          rm -f "$raw_file" "$candidate_file" 2>/dev/null || true
-          raw_file="$(mktemp)"
-          candidate_file="$(mktemp)"
-          rm -f "$raw_file" "$candidate_file" 2>/dev/null || true
-
-          if download_subscription_yaml "$url" "$raw_file" "$fetch_reason"; then
-            if build_runtime_candidate_from_payload "$raw_file" "$candidate_file" "$name"; then
-              mv -f "$candidate_file" "$out_file"
-              rm -f "$raw_file" 2>/dev/null || true
-              mark_subscription_health_success "$name"
-              return 0
-            fi
-
-            write_subscription_invalid_debug_snapshot "$raw_file"
-            reason="订阅转换失败：No nodes were found；已尝试原始订阅 fallback，但原始订阅不是可直接运行的 Clash YAML"
-          else
-            reason="订阅转换失败：No nodes were found；原始订阅 fallback 下载失败"
-          fi
-        fi
-      fi
-      ;;
-    *)
-      reason="不支持的订阅格式：$fmt"
+  case "$fetch_reason" in
+    explicit-add|manual-add|manual-use|manual-refresh)
+      clear_subscription_cache "$url" "clash"
       ;;
   esac
+
+  if download_subscription_yaml "$url" "$raw_file" "$fetch_reason"; then
+    if build_runtime_candidate_from_payload "$raw_file" "$candidate_file" "$name"; then
+      mv -f "$candidate_file" "$out_file"
+      rm -f "$raw_file" 2>/dev/null || true
+      mark_subscription_health_success "$name"
+      return 0
+    fi
+
+    write_subscription_invalid_debug_snapshot "$raw_file"
+    if [ "$scheme" = "file" ]; then
+      reason="本地订阅不是合法的 Clash YAML 配置"
+    else
+      reason="订阅下载成功，但内容不是合法的 Clash YAML 配置"
+    fi
+  else
+    reason="订阅下载失败"
+  fi
 
   rm -f "$raw_file" "$candidate_file" 2>/dev/null || true
   mark_subscription_health_failure "$name" "$reason"
@@ -4064,13 +3958,8 @@ generate_config() {
   if ! fetch_subscription_source "$active_source" "$source_file" "auto"; then
     failed_csv="$active_source"
     if ! read_compile_error >/dev/null 2>&1; then
-      if [ -n "${SUBCONVERTER_LAST_ERROR_SUMMARY:-}" ]; then
-        write_compile_error "当前主订阅不可用：$active_source"
-        append_compile_error "reason : $SUBCONVERTER_LAST_ERROR_SUMMARY"
-      else
-        write_compile_error "当前主订阅不可用"
-        append_compile_error "source : $active_source"
-      fi
+      write_compile_error "当前主订阅不可用"
+      append_compile_error "source : $active_source"
     fi
     fail_build_with_detail \
       "fetch-source" \

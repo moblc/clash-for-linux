@@ -3044,15 +3044,7 @@ logs_mihomo() {
 }
 
 logs_subconverter() {
-  local file
-  file="$(subconverter_log_file)"
-
-  if [ ! -f "$file" ]; then
-    echo "subconverter 日志文件不存在"
-    return 0
-  fi
-
-  tail -n 200 "$file"
+  echo "当前版本不使用 subconverter"
 }
 
 logs_service() {
@@ -3273,7 +3265,6 @@ doctor_dependencies() {
   doctor_print_title "依赖检查"
 
   [ -x "$(mihomo_bin)" ] && doctor_ok "Mihomo 已安装：$(mihomo_bin)" || doctor_fail "Mihomo 缺失：$(mihomo_bin)"
-  [ -x "$(subconverter_bin)" ] && doctor_ok "subconverter 已安装：$(subconverter_bin)" || doctor_fail "subconverter 缺失：$(subconverter_bin)"
   [ -x "$(yq_bin)" ] && doctor_ok "yq 已安装：$(yq_bin)" || doctor_fail "yq 缺失：$(yq_bin)"
 
   dashboard_source="$(dashboard_asset_source)"
@@ -3573,13 +3564,6 @@ doctor_ports() {
 
   if ! doctor_yq_available; then
     doctor_warn_skip_yq_parse
-    if [ -x "$(subconverter_bin)" ]; then
-      if is_port_in_use "$(subconverter_port)"; then
-        doctor_ok "subconverter 端口已监听：$(subconverter_port)"
-      else
-        doctor_warn "subconverter 端口未监听：$(subconverter_port)"
-      fi
-    fi
     return 0
   fi
 
@@ -3623,14 +3607,6 @@ doctor_ports() {
     fi
   else
     doctor_warn "无法检查 DNS 端口"
-  fi
-
-  if [ -x "$(subconverter_bin)" ]; then
-    if is_port_in_use "$(subconverter_port)"; then
-      doctor_ok "subconverter 端口已监听：$(subconverter_port)"
-    else
-      doctor_warn "subconverter 端口未监听：$(subconverter_port)"
-    fi
   fi
 }
 

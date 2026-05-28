@@ -73,7 +73,6 @@ sync_runtime_dependencies() {
   ensure_dashboard_deploy_prerequisites
   resolve_yq
   resolve_runtime_kernel
-  resolve_subconverter
   install_local_dashboard_assets
   ensure_controller_secret >/dev/null
 }

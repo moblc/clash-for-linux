@@ -3367,7 +3367,7 @@ doctor_config() {
 }
 
 doctor_subscription() {
-  local active file total enabled convert_count auto_disabled_count name
+  local active file total enabled auto_disabled_count name
 
   doctor_print_title "订阅检查"
 
@@ -3378,6 +3378,7 @@ doctor_subscription() {
   fi
 
   doctor_ok "订阅策略：active-only"
+  doctor_ok "订阅导入：Clash YAML 直接导入（不进行订阅转换）"
 
   if ! doctor_yq_available; then
     doctor_warn_skip_yq_parse
@@ -3388,7 +3389,6 @@ doctor_subscription() {
 
   total="$("$(yq_bin)" eval '.sources | keys | length' "$file" 2>/dev/null || echo 0)"
   enabled="$("$(yq_bin)" eval '[.sources[] | select(.enabled == true)] | length' "$file" 2>/dev/null || echo 0)"
-  convert_count="$("$(yq_bin)" eval '[.sources[] | select(.type == "convert")] | length' "$file" 2>/dev/null || echo 0)"
 
   auto_disabled_count="$(
     while IFS= read -r name; do
@@ -3404,7 +3404,6 @@ doctor_subscription() {
 
   doctor_ok "订阅源总数：$total"
   doctor_ok "已启用订阅源：$enabled"
-  doctor_ok "convert 订阅源：$convert_count"
   doctor_ok "自动禁用订阅源：$auto_disabled_count"
 
   if [ -n "${active:-}" ] && subscription_exists "$active"; then

@@ -2316,16 +2316,7 @@ bootstrap_subscription_from_install_input() {
   [ -n "${url:-}" ] || return 1
 
   subscription_url_is_supported "$url" || die "订阅地址格式不合法"
-  [ -n "${fmt:-}" ] || fmt="$(detect_subscription_format "$url")"
-
-  case "$fmt" in
-    clash|convert) ;;
-    *) die "不支持的订阅格式：$fmt" ;;
-  esac
-
-  if [ "$fmt" = "convert" ] && [ "$(subscription_url_scheme "$url")" = "file" ]; then
-    die "convert 格式暂不支持 file:// 本地订阅，请改用 clash 格式"
-  fi
+  fmt="clash"
 
   file="$(subscriptions_file)"
   ensure_subscriptions_file
@@ -2430,16 +2421,7 @@ set_subscription() {
   [ -n "$url" ] || die "订阅地址不能为空"
 
   subscription_url_is_supported "$url" || die "订阅地址格式不合法"
-  [ -n "${fmt:-}" ] || fmt="$(detect_subscription_format "$url")"
-
-  case "$fmt" in
-    clash|convert) ;;
-    *) die "不支持的订阅格式：$fmt" ;;
-  esac
-
-  if [ "$fmt" = "convert" ] && [ "$(subscription_url_scheme "$url")" = "file" ]; then
-    die "convert 格式暂不支持 file:// 本地订阅，请改用 clash 格式"
-  fi
+  fmt="clash"
 
   file="$(subscriptions_file)"
   ensure_subscriptions_file
@@ -3028,14 +3010,21 @@ subscription_list_recommendation_lines() {
 detect_subscription_format() {
   local url="$1"
 
-  case "$url" in
-    *.yaml|*.yml|*".yaml?"*|*".yml?"*)
-      echo "clash"
-      ;;
-    *)
-      echo "clash"
-      ;;
-  esac
+  echo "clash"
+}
+
+normalize_subscription_format_to_clash() {
+  local name="$1"
+  local file
+
+  [ -n "${name:-}" ] || return 0
+
+  file="$(subscriptions_file)"
+  ensure_subscriptions_file
+
+  NAME="$name" "$(yq_bin)" eval -i '
+    .sources[env(NAME)].type = "clash"
+  ' "$file"
 }
 
 prompt_subscription_if_needed() {
@@ -3884,6 +3873,12 @@ fetch_subscription_source() {
   url="$(subscription_url_by_name "$name")"
   fmt="$(subscription_format_by_name "$name")"
   scheme="$(subscription_url_scheme "$url")"
+
+  if [ "${fmt:-clash}" != "clash" ]; then
+    normalize_subscription_format_to_clash "$name"
+    fmt="clash"
+    info "订阅将按 Clash YAML 直接导入，跳过订阅转换：$name"
+  fi
 
   raw_file="$(mktemp)"
   candidate_file="$(mktemp)"

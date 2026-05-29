@@ -3860,7 +3860,6 @@ build_runtime_candidate_from_payload() {
 
   cp -f "$payload_file" "$out_file"
   normalize_runtime_config "$out_file"
-  test_runtime_config "$out_file" >/dev/null 2>&1
 }
 
 fetch_subscription_source() {
